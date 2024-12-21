@@ -21,14 +21,52 @@ figma.ui.onmessage = async (msg) => {
       // Get selection bounds
       const selectionBounds = getBoundingBoxForNodes(selection);
       
+      // Create main frame with auto layout
+      const annotationFrame = figma.createFrame();
+      annotationFrame.name = 'Annotation';
+      annotationFrame.layoutMode = 'HORIZONTAL';
+      annotationFrame.counterAxisAlignItems = 'CENTER';
+      annotationFrame.fills = [];
+      annotationFrame.strokes = [];
+      annotationFrame.itemSpacing = 0;
+      annotationFrame.paddingLeft = 0;
+      annotationFrame.paddingRight = 0;
+      annotationFrame.paddingTop = 0;
+      annotationFrame.paddingBottom = 0;
+      annotationFrame.clipsContent = false;
+
+      // Create rectangle container
+      const rectContainer = figma.createFrame();
+      rectContainer.layoutMode = 'HORIZONTAL';
+      rectContainer.fills = [];
+      rectContainer.strokes = [];
+      rectContainer.clipsContent = false;
+      rectContainer.resize(selectionBounds.width + 40, selectionBounds.height + 40);
+
       // Create annotation rectangle
       const rect = figma.createRectangle();
       rect.resize(selectionBounds.width + 40, selectionBounds.height + 40);
-      rect.x = selectionBounds.x - 20;
-      rect.y = selectionBounds.y - 20;
       rect.fills = [{ type: 'SOLID', color: { r: 0.5, g: 0, b: 1 }, opacity: 0.14 }];
       rect.strokeWeight = 2;
       rect.strokes = [{ type: 'SOLID', color: { r: 0.5, g: 0, b: 1 } }];
+      
+      // Create annotation content container (line + text)
+      const contentContainer = figma.createFrame();
+      contentContainer.layoutMode = 'HORIZONTAL';
+      contentContainer.fills = [];
+      contentContainer.strokes = [];
+      contentContainer.clipsContent = false;
+      contentContainer.itemSpacing = 20;
+      contentContainer.counterAxisAlignItems = 'CENTER';
+      contentContainer.layoutAlign = 'STRETCH';
+      contentContainer.resize(200, selectionBounds.height + 40);
+
+      // Create connector line
+      const line = figma.createLine();
+      line.layoutGrow = 1;
+      line.constraints = { horizontal: 'STRETCH', vertical: 'CENTER' };
+      line.strokes = [{ type: 'SOLID', color: { r: 0.5, g: 0, b: 1 } }];
+      line.strokeWeight = 2;
 
       // Create text node
       const text = figma.createText();
@@ -36,26 +74,31 @@ figma.ui.onmessage = async (msg) => {
       text.characters = 'Type annotation here';
       text.fontSize = 14;
       text.fills = [{ type: 'SOLID', color: { r: 0.5, g: 0, b: 1 } }];
-      
-      // Position text to the right of the rectangle
-      text.x = rect.x + rect.width + 40;
-      text.y = rect.y + (rect.height / 2) - (text.height / 2);
+      text.textAlignVertical = 'CENTER';
+      text.layoutGrow = 1;
+      text.layoutAlign = 'STRETCH';
 
-      // Create a line for the connector
-      const line = figma.createLine();
-      line.x = rect.x + rect.width;
-      line.y = rect.y + (rect.height / 2);
-      line.resize(text.x - line.x, 0);
-      line.strokes = [{ type: 'SOLID', color: { r: 0.5, g: 0, b: 1 } }];
-      line.strokeWeight = 2;
+      // Build the hierarchy
+      rectContainer.appendChild(rect);
+      contentContainer.appendChild(line);
+      contentContainer.appendChild(text);
 
-      // Group everything
-      const annotationGroup = figma.group([rect, line, text], figma.currentPage);
-      annotationGroup.name = 'Annotation';
+      annotationFrame.appendChild(rectContainer);
+      annotationFrame.appendChild(contentContainer);
+
+      // Position the frame
+      annotationFrame.x = selectionBounds.x - 20;
+      annotationFrame.y = selectionBounds.y - 20;
+
+      // Resize frame to fit content
+      annotationFrame.resize(
+        rectContainer.width + contentContainer.width,
+        Math.max(rectContainer.height, contentContainer.height)
+      );
 
       // Select the text for editing
       figma.currentPage.selection = [text];
-      figma.viewport.scrollAndZoomIntoView([annotationGroup]);
+      figma.viewport.scrollAndZoomIntoView([annotationFrame]);
 
     } catch (error) {
       console.error('Error:', error);
